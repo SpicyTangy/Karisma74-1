@@ -99,7 +99,7 @@ def cmd_classify(args, logger) -> None:
             logger.warning("PDF oversize, saltato: %s", pdf.name)
             continue
         file_hash = file_sha256(str(pdf))
-        record = cache.get(file_hash)
+        record = None if getattr(args, "refresh", False) else cache.get(file_hash)
         if record is None:
             logger.info("Classifico: %s", pdf.name)
             record = client.classify(str(pdf))
@@ -137,6 +137,9 @@ def parse_args() -> argparse.Namespace:
         sp = sub.add_parser(name)
         sp.add_argument("--from", dest="from_date", default=from_default.isoformat(), metavar="YYYY-MM-DD")
         sp.add_argument("--to", dest="to_date", default=to_default.isoformat(), metavar="YYYY-MM-DD")
+        if name in ("classify", "all"):
+            sp.add_argument("--refresh", action="store_true",
+                            help="ignora la cache e ri-classifica tutti i PDF (sovrascrive i risultati)")
     return parser.parse_args()
 
 
