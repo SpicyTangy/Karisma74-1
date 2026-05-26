@@ -38,6 +38,41 @@ def flatten_fields(extracted_fields: dict | None) -> dict:
     return out
 
 
+def _safe_json(response):
+    try:
+        return response.json()
+    except Exception:
+        return None
+
+
+def _success_record(filename: str, data: dict) -> dict:
+    sv = data.get("supplier_verification") or {}
+    cls = data.get("classification") or {}
+    return {
+        "file": filename,
+        "status": derive_status(data),
+        "fornitore_ok": sv.get("belongs_to_supplier"),
+        "tipo_documento": cls.get("document_type"),
+        "tipo_label": cls.get("document_type_label"),
+        "confidenza_classif": cls.get("confidence"),
+        "campi": flatten_fields(data.get("extracted_fields")),
+        "errore": None,
+    }
+
+
+def _error_record(filename: str, code, message) -> dict:
+    return {
+        "file": filename,
+        "status": "errore",
+        "fornitore_ok": None,
+        "tipo_documento": None,
+        "tipo_label": None,
+        "confidenza_classif": None,
+        "campi": {},
+        "errore": f"{code}: {message}",
+    }
+
+
 class D74Client:
     def __init__(self, base_url, app_name, password, supplier,
                  timeout=120, session=None, sleep=time.sleep):
@@ -60,3 +95,56 @@ class D74Client:
         r.raise_for_status()
         self.token = r.json()["token"]
         return self.token
+
+    def _classify_once(self, pdf_path: str):
+        with open(pdf_path, "rb") as fh:
+            r = self.session.post(
+                f"{self.base_url}/api/documents/classify-hybrid",
+                headers={"Authorization": f"Bearer {self.token}", "Accept": "application/json"},
+                data={"supplier": self.supplier},
+                files={"file": (os.path.basename(pdf_path), fh, "application/pdf")},
+                timeout=self.timeout,
+            )
+        return r.status_code, _safe_json(r)
+
+    def classify(self, pdf_path: str) -> dict:
+        if self.token is None:
+            self.login()
+        filename = os.path.basename(pdf_path)
+        attempt = 0
+        relogged = False
+        while True:
+            try:
+                status, payload = self._classify_once(pdf_path)
+            except requests.RequestException as exc:
+                if attempt >= len(BACKOFF_DELAYS):
+                    return _error_record(filename, "RETE", str(exc))
+                self.sleep(BACKOFF_DELAYS[attempt])
+                attempt += 1
+                continue
+
+            if status == 200 and isinstance(payload, dict) and payload.get("success"):
+                return _success_record(filename, payload["data"])
+
+            if status == 401:
+                if relogged:
+                    return _error_record(filename, "AUTH", "re-login fallito (401)")
+                self.login()
+                relogged = True
+                continue
+
+            if status == 422:
+                err = payload.get("error", {}) if isinstance(payload, dict) else {}
+                return _error_record(filename, err.get("code", "422"),
+                                     err.get("message", "validazione/pipeline"))
+
+            if status == 429 or 500 <= status < 600:
+                if attempt >= len(BACKOFF_DELAYS):
+                    err = payload.get("error", {}) if isinstance(payload, dict) else {}
+                    return _error_record(filename, err.get("code", f"HTTP_{status}"),
+                                         err.get("message", "errore server"))
+                self.sleep(BACKOFF_DELAYS[attempt])
+                attempt += 1
+                continue
+
+            return _error_record(filename, f"HTTP_{status}", str(payload))
