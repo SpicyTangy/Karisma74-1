@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+import os
+import time
+
+import requests
+
+BACKOFF_DELAYS = [2, 5, 15]
+
 LOW_CONFIDENCE_THRESHOLD = 0.7
 
 
@@ -29,3 +36,27 @@ def flatten_fields(extracted_fields: dict | None) -> dict:
     for key, val in extracted_fields.items():
         out[key] = val.get("value") if isinstance(val, dict) else val
     return out
+
+
+class D74Client:
+    def __init__(self, base_url, app_name, password, supplier,
+                 timeout=120, session=None, sleep=time.sleep):
+        self.base_url = base_url.rstrip("/")
+        self.app_name = app_name
+        self.password = password
+        self.supplier = supplier
+        self.timeout = timeout
+        self.session = session or requests.Session()
+        self.sleep = sleep
+        self.token = None
+
+    def login(self) -> str:
+        r = self.session.post(
+            f"{self.base_url}/api/auth/login",
+            json={"app_name": self.app_name, "password": self.password},
+            headers={"Accept": "application/json"},
+            timeout=30,
+        )
+        r.raise_for_status()
+        self.token = r.json()["token"]
+        return self.token
