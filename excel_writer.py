@@ -10,13 +10,23 @@ FIXED_COLUMNS = [
     "tipo_documento", "tipo_label", "confidenza_classif", "errore",
 ]
 
+# Ordine preferito delle colonne dei campi estratti. I campi qui elencati
+# compaiono in quest'ordine (commissioni e provvigioni adiacenti); gli altri,
+# non previsti, vengono aggiunti in fondo in ordine alfabetico.
+PREFERRED_FIELD_ORDER = [
+    "data_documento", "numero_documento", "totale", "commissioni", "provvigioni",
+]
+
 
 def collect_field_columns(records: list[dict]) -> list[str]:
-    """Unione ordinata di tutte le chiavi presenti nei `campi` dei record."""
+    """Colonne dei campi estratti, ordinate secondo PREFERRED_FIELD_ORDER e poi
+    per chiavi non previste in ordine alfabetico."""
     keys: set[str] = set()
     for rec in records:
         keys.update((rec.get("campi") or {}).keys())
-    return sorted(keys)
+    preferred = [k for k in PREFERRED_FIELD_ORDER if k in keys]
+    others = sorted(k for k in keys if k not in PREFERRED_FIELD_ORDER)
+    return preferred + others
 
 
 def _timestamped_path(path: str) -> str:
