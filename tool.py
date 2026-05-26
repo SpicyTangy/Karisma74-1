@@ -119,8 +119,10 @@ def cmd_classify(args, logger) -> None:
 
     run_date = date.today().strftime("%Y%m%d")
     excel_path = OUTPUT_DIR / f"risultati_{run_date}.xlsx"
-    write_excel(records, str(excel_path))
-    logger.info("Excel scritto: %s (%d righe)", excel_path, len(records))
+    written = write_excel(records, str(excel_path))
+    if written != str(excel_path):
+        logger.warning("File %s bloccato (aperto in Excel?): scritto su %s", excel_path, written)
+    logger.info("Excel scritto: %s (%d righe)", written, len(records))
 
 
 def cmd_all(args, logger) -> None:

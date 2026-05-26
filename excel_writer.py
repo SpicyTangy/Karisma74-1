@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 from openpyxl import Workbook
@@ -18,7 +19,27 @@ def collect_field_columns(records: list[dict]) -> list[str]:
     return sorted(keys)
 
 
-def write_excel(records: list[dict], path: str) -> None:
+def _timestamped_path(path: str) -> str:
+    """Inserisce l'orario (HHMMSS) prima dell'estensione: ris.xlsx → ris_143700.xlsx."""
+    p = Path(path)
+    return str(p.with_name(f"{p.stem}_{datetime.now().strftime('%H%M%S')}{p.suffix}"))
+
+
+def _save_workbook(wb, path: str) -> str:
+    """Salva il workbook; se il file è bloccato (es. aperto in Excel) ripiega su
+    un nome alternativo con l'orario. Ritorna il path effettivamente scritto."""
+    try:
+        wb.save(path)
+        return path
+    except PermissionError:
+        alt = _timestamped_path(path)
+        wb.save(alt)
+        return alt
+
+
+def write_excel(records: list[dict], path: str) -> str:
+    """Scrive l'Excel e ritorna il path effettivamente scritto (può differire
+    da `path` se l'originale era bloccato)."""
     field_cols = collect_field_columns(records)
     headers = FIXED_COLUMNS + field_cols
 
@@ -33,4 +54,4 @@ def write_excel(records: list[dict], path: str) -> None:
         ws.append(["" if v is None else v for v in values])
 
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    wb.save(path)
+    return _save_workbook(wb, path)
