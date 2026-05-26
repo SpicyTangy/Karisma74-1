@@ -132,6 +132,22 @@ def fetch_emails(user, client_id, client_secret, refresh_token,
     return messages
 
 
+def _safe_filename(filename: str) -> str:
+    """Rende un nome file sicuro per il filesystem.
+
+    Sostituisce i caratteri di controllo (inclusi i ritorni a capo che a volte
+    finiscono nel nome per via degli header MIME ripiegati su più righe),
+    collassa gli spazi, scarta eventuali componenti di percorso e rimpiazza i
+    caratteri non ammessi da Windows. Ritorna 'allegato.pdf' se resta vuoto.
+    """
+    name = re.sub(r"[\x00-\x1f]+", " ", filename)  # \r \n \t … → spazio
+    name = re.sub(r"\s+", " ", name).strip()        # collassa spazi multipli
+    name = Path(name).name                           # scarta parti di percorso
+    name = _INVALID.sub("_", name)
+    name = name.strip(" .")                          # niente spazi/punti ai bordi
+    return name or "allegato.pdf"
+
+
 def download_pdfs(msg: Message, pdf_dir: Path, logger) -> list[Path]:
     try:
         dt = parsedate_to_datetime(msg.get("Date", ""))
@@ -159,7 +175,7 @@ def download_pdfs(msg: Message, pdf_dir: Path, logger) -> list[Path]:
             logger.warning("PDF oversize (%d MB): %s — saltato", len(payload) // (1024 * 1024), filename)
             continue
 
-        safe = _INVALID.sub("_", Path(filename).name)
+        safe = _safe_filename(filename)
         pdf_path = dest_dir / f"{date_prefix}_{safe}"
         pdf_path.write_bytes(payload)
         saved.append(pdf_path)
