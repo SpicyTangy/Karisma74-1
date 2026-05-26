@@ -4,6 +4,8 @@
 
 # Output generato (PDF scaricati, Excel, cache, log)
 output/
+# Excel sparsi fuori da output/ (es. file di test temporanei)
+*.xlsx
 
 # Python
 __pycache__/
