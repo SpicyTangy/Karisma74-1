@@ -1,0 +1,20 @@
+# Credenziali / segreti — MAI su git
+.env
+*.local
+
+# Output generato (PDF scaricati, Excel, cache, log)
+output/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Config locale Claude Code
+.claude/settings.local.json
+
+# Sistema
+.DS_Store
+Thumbs.db
