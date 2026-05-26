@@ -79,7 +79,7 @@ def cmd_download(args, logger) -> None:
 
 
 def cmd_classify(args, logger) -> None:
-    base_url = os.getenv("D74_BASE_URL", DEFAULT_BASE_URL)
+    base_url = os.getenv("D74_BASE_URL") or DEFAULT_BASE_URL
     client = D74Client(
         base_url,
         _require_env("APP_NAME"),
