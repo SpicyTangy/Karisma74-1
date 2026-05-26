@@ -90,6 +90,7 @@ def cmd_classify(args, logger) -> None:
     cache = ResultCache(str(CACHE_PATH))
 
     records: list[dict] = []
+    PDF_DIR.mkdir(parents=True, exist_ok=True)
     pdfs = sorted(PDF_DIR.rglob("*.pdf"))
     logger.info("PDF da classificare: %d", len(pdfs))
 
