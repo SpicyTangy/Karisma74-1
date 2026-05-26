@@ -19,3 +19,13 @@ def derive_status(data: dict) -> str:
     if conf is not None and conf < LOW_CONFIDENCE_THRESHOLD:
         return "bassa_confidenza"
     return "classificato"
+
+
+def flatten_fields(extracted_fields: dict | None) -> dict:
+    """Trasforma {key: {value, confidence}} in {key: value}. None/vuoto → {}."""
+    if not extracted_fields:
+        return {}
+    out: dict = {}
+    for key, val in extracted_fields.items():
+        out[key] = val.get("value") if isinstance(val, dict) else val
+    return out
